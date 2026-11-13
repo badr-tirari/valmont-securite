@@ -1,0 +1,65 @@
+# Preuves — minimisation avant l'entrepôt
+# Exécution du 13/11/2026 16:59 — clé de pseudonymisation tirée par generer_cle.py
+
+$ python minimiser_pour_entrepot.py ../02-au-repos/sql/01-patients.sql sortie
+Source : 15 fiches, 12 colonnes
+Entrepôt : 15 lignes, 8 colonnes → sortie/entrepot_resultats.csv
+  supprimées : nom, prenom, email, telephone, adresse, date_naissance, nir, id
+  transformées : nir → pseudo_patient (HMAC), date_naissance → tranche_age, adresse → region, rendu_le → mois_rendu
+
+Contrôle 1 — aucun identifiant direct dans l'entrepôt
+  [OK] 90 valeurs d'identifiants cherchées, 0 retrouvée(s)
+
+Contrôle 2 — le jeton ne se recalcule pas sans la clé
+  jeton dans l'entrepôt       : 4cb4575c88b71593
+  SHA-256(NIR) sans clé       : 8656ddd0ae2e3ce0  ≠ (énumération des NIR inutile)
+
+Contrôle 3 — risque de ré-identification (k-anonymat sur les quasi-identifiants)
+  k = 1  avec le département (choix écarté)                   — 15/15 ligne(s) unique(s)
+  k = 1  avec la région (choix retenu, ligne individuelle)    — 15/15 ligne(s) unique(s)
+  k = 1  tableau de bord (tranche d'âge seule)                — 1/15 ligne(s) unique(s)
+
+Tableau de bord : 15 case(s), 15 masquée(s) (< 5 résultats) → sortie/tableau_de_bord.csv
+
+Conclusion :
+  - pseudonymiser ne suffit pas à anonymiser : même sexe + tranche d'âge + région isole chaque fiche ;
+    l'entrepôt reste une donnée PERSONNELLE de santé (RGPD applicable, accès restreint, durée limitée) ;
+  - sur 15 fiches, aucune case n'atteint 5 : RIEN n'est publiable dans un tableau de bord.
+    Au volume réel (des milliers de résultats par mois), les cases fréquentes passent le seuil, les rares restent masquées.
+code retour = 0
+
+$ type sortie/entrepot_resultats.csv
+pseudo_patient,sexe,tranche_age,region,analyse,valeur,unite,mois_rendu
+4cb4575c88b71593,F,40-49,Hauts-de-France,Glycémie à jeun,1.08,g/L,2026-11
+935521e5790e21ae,H,50-59,Occitanie,Créatinine,88,µmol/L,2026-11
+a032c8bcc23037b3,F,30-39,Île-de-France,TSH,2.1,mUI/L,2026-11
+f5c7d4da7c96ddec,H,60-69,Provence-Alpes-Côte d'Azur,Cholestérol LDL,1.22,g/L,2026-11
+8d8337c4aefcff2d,F,40-49,Auvergne-Rhône-Alpes,HbA1c,5.4,%,2026-11
+642a665b717e17ba,H,70-79,Île-de-France,CRP,3,mg/L,2026-11
+3b6c0786ee8d0d6d,F,30-39,Auvergne-Rhône-Alpes,Hémoglobine,13.9,g/dL,2026-11
+ff2397034a673ea3,H,70-79,Grand Est,D-dimères,210,ng/mL,2026-11
+13958618da1e7477,F,20-29,Occitanie,Sodium,139,mmol/L,2026-11
+2f1f8de488d0edc1,H,30-39,Auvergne-Rhône-Alpes,Kalium,4.2,mmol/L,2026-11
+d39a09d9561ed926,F,50-59,Île-de-France,ALAT,26,U/L,2026-11
+58f6ffdcc6a847d5,H,30-39,Provence-Alpes-Côte d'Azur,Vitamine 25-OH-D,28,ng/mL,2026-11
+87ac65d68bd92186,F,60-69,Île-de-France,Ferritine,145,µg/L,2026-11
+9392602bb198b910,H,40-49,Île-de-France,Acide urique,52,mg/L,2026-11
+fbeb864f8663861a,F,50-59,Bretagne,Bilirubine totale,12,µmol/L,2026-11
+
+$ type sortie/tableau_de_bord.csv
+analyse,tranche_age,nombre_resultats
+ALAT,50-59,<5
+Acide urique,40-49,<5
+Bilirubine totale,50-59,<5
+CRP,70-79,<5
+Cholestérol LDL,60-69,<5
+Créatinine,50-59,<5
+D-dimères,70-79,<5
+Ferritine,60-69,<5
+Glycémie à jeun,40-49,<5
+HbA1c,40-49,<5
+Hémoglobine,30-39,<5
+Kalium,30-39,<5
+Sodium,20-29,<5
+TSH,30-39,<5
+Vitamine 25-OH-D,30-39,<5

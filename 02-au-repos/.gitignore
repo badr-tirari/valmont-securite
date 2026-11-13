@@ -1,0 +1,4 @@
+*.csv.chiffre.altere
+export_dechiffre.csv
+__pycache__/
+.env

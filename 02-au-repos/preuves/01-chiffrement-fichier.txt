@@ -1,0 +1,36 @@
+# Preuves — chiffrement de fichier (AES-256-GCM)
+# Exécution du 13/11/2026 16:01 — clés tirées par generer_cle.py, lues dans l'environnement
+
+$ python chiffrer_fichier.py donnees/export_2026-11-05.csv donnees/export_2026-11-05.csv.chiffre
+Chiffré : donnees/export_2026-11-05.csv (760 octets) -> donnees/export_2026-11-05.csv.chiffre (788 octets)
+
+$ (structure du fichier chiffré, en hexadécimal)
+nonce (12 octets) : d537c056374025d463aa4a8c
+chiffré (début)   : cf3086d1a395cc15c83d2ed18c785d9a0207fa9388dfad03d8ec98fbd2ac9ef5…
+tag (16 derniers)  : a04b9a2c5d5e4b2ff54cf762428a845d
+
+$ python dechiffrer_fichier.py donnees/export_2026-11-05.csv.chiffre donnees/export_dechiffre.csv
+Déchiffré et authentifié : donnees/export_2026-11-05.csv.chiffre -> donnees/export_dechiffre.csv (760 octets)
+$ comparaison avec l original
+fichiers identiques
+
+$ (un octet du milieu inversé) python dechiffrer_fichier.py export.csv.chiffre.altere sortie.csv
+Échec : déchiffrement refusé (fichier non authentique ou clé incorrecte). Aucun fichier écrit.
+code retour = 1 ; sortie.csv créé : non
+
+$ python test_alteration.py donnees/export_2026-11-05.csv
+1. Aller-retour
+  [OK] SHA-256 original   = 60ab9c47aecceef8b85305cf01e7815b18bd9c0cabdcc1912c1c5de9e22660d2
+        SHA-256 déchiffré  = 60ab9c47aecceef8b85305cf01e7815b18bd9c0cabdcc1912c1c5de9e22660d2
+2. Nonce unique
+  [OK] nonce 1 = d694784c33c7d729586d07df / nonce 2 = 7de9e0c138ae9348b9f775a0
+3. Altération d'un seul octet
+  [OK] octet 0 (nonce) : refusé
+  [OK] octet 394 (milieu du chiffré) : refusé
+  [OK] octet 787 (dernier octet du tag) : refusé
+4. Troncature
+  [OK] dernier octet supprimé : refusé
+5. Mauvaise clé
+  [OK] clé aléatoire différente : refusé
+
+Bilan : 7/7 contrôles réussis

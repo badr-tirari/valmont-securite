@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1189
+nir: 285075921504281
+nom: Marchand
+prenom: Alicie
+analyse: Glycémie à jeun
+valeur: 1.08
+unite: g/L
+rendu_le: 2026-11-05 08:12:00
+biologiste: Dr A. Kessler

@@ -1,0 +1,23 @@
+# Preuves — coût du chiffrement (temps de lecture avec et sans)
+# Exécution du 13/11/2026 17:05 — CPython 3.13.18 / cryptography 50.0.1 / x86_64, 2 cœur(s)
+
+$ python mesure_cout.py
+A. Export nocturne réel (0.001 Mo, médiane de 2000 lectures)
+  lecture du clair              :     0.003 ms
+  lecture + déchiffrement GCM   :     0.006 ms
+  surcoût                       :     0.003 ms  (×1.8)
+
+B. Export volumineux synthétique (100 000 lignes) (9.872 Mo, médiane de 50 lectures)
+  lecture du clair              :     0.874 ms
+  lecture + déchiffrement GCM   :     3.194 ms
+  surcoût                       :     2.320 ms  (×3.7)
+  débit de déchiffrement        :      4255 Mo/s
+
+C. Colonne NIR — 10 000 valeurs déchiffrées une à une (médiane de 20 passes)
+  total                         :       7.9 ms
+  par ligne                     :      0.79 µs
+
+Lecture : le surcoût par fichier ou par ligne se compte en microsecondes ; il est négligeable
+devant un aller-retour réseau vers la base (≈ 0,5 à 1 ms) ou l'affichage d'une page.
+Le vrai coût du chiffrement n'est pas le calcul : c'est la gestion des clés et ce qu'on
+perd côté requêtes (plus de LIKE, de tri ni de jointure sur une colonne chiffrée, étape 2).

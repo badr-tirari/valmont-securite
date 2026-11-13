@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1187
+nir: 147126721405234
+nom: Schneider
+prenom: Hugo
+analyse: D-dimères
+valeur: 210
+unite: ng/mL
+rendu_le: 2026-11-05 06:55:00
+biologiste: Dr A. Kessler

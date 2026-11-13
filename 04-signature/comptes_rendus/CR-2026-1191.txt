@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1191
+nir: 153019124401986
+nom: Benali
+prenom: Farid
+analyse: CRP
+valeur: 3
+unite: mg/L
+rendu_le: 2026-11-05 10:02:00
+biologiste: Dr A. Kessler

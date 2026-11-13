@@ -1,0 +1,46 @@
+# Configuration gitleaks du Laboratoire Valmont — garde-fou n° 1.
+# Règles standards de gitleaks + règles propres au laboratoire.
+
+title = "Valmont — détection de secrets et de données de santé"
+
+[extend]
+useDefault = true   # clés AWS, jetons GitHub, clés privées, etc.
+
+[[rules]]
+id = "valmont-cle-base64"
+description = "Clé applicative Valmont (32 octets en base64) écrite en dur"
+regex = '''VALMONT_CLE_\w+\s*[=:]\s*["']?[A-Za-z0-9+/]{43}='''
+tags = ["cle", "valmont"]
+
+[[rules]]
+id = "cle-privee-pem-chiffree"
+description = "Clé privée PEM, même chiffrée : elle n'a rien à faire dans un dépôt"
+regex = '''-----BEGIN ENCRYPTED PRIVATE KEY-{5}'''   # -{5} : la règle ne se détecte pas elle-même
+tags = ["cle"]
+
+[[rules]]
+id = "mot-de-passe-en-dur"
+description = "Mot de passe ou phrase de passe écrit en dur"
+regex = '''(?i)(?:password|passwd|pwd|passphrase|mot_de_passe|secret)\w*\s*[=:]\s*["'](?!\*+["'])([^"'\s$<>{}()]{6,})["']'''
+secretGroup = 1
+tags = ["mot-de-passe"]
+
+[[rules]]
+id = "nir-donnee-de-sante"
+description = "NIR (numéro de sécurité sociale) : un export de production commité est une fuite de données de santé"
+regex = '''(?:^|[^0-9])([12][0-9]{14})(?:[^0-9]|$)'''
+secretGroup = 1
+tags = ["rgpd", "sante"]
+
+# Exception propre à CETTE règle (gitleaks ≥ 8.21) : l'échantillon FICTIF fourni par le sujet.
+# Les autres règles (clés, mots de passe) s'appliquent toujours à ces fichiers.
+# Toute nouvelle exception passe en revue de code (quatre yeux).
+[[rules.allowlists]]
+description = "Échantillon fictif du TP et journaux de preuve qui l'affichent"
+paths = [
+  '''02-au-repos/sql/01-patients\.sql''',
+  '''02-au-repos/donnees/export_2026-11-05\.csv''',
+  '''04-signature/comptes_rendus/CR-2026-\d+\.txt''',
+  '''.*/preuves/.*\.txt''',
+  '''02-au-repos/README\.md''',
+]

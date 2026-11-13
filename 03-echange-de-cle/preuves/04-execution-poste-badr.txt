@@ -1,0 +1,37 @@
+# Exécution réelle sur le poste de cours — Windows 11, PowerShell, Python 3.14.5, cryptography 50.0.2 — 13/11/2026 16:31-16:36
+
+$ py echanger_cle.py generer-partenaire partenaire
+Paire RSA-3072 du partenaire créée dans partenaire/
+  partenaire_prive.pem  → reste chez le partenaire (chiffrée par sa phrase de passe)
+  partenaire_public.pem → transmise au labo
+  empreinte de la clé publique : d2:af:18:09:cc:83:9f:47…2da059e5
+
+$ py echanger_cle.py envelopper ..\02-au-repos\donnees\export_2026-11-05.csv partenaire\partenaire_public.pem livraison
+Clé publique du partenaire : d2:af:18:09:cc:83:9f:47…2da059e5 (à comparer avec l'empreinte annoncée par le partenaire)
+Clé de session tirée (32 octets) — empreinte SHA-256 : a066f3f4ab508897…
+  livraison\cle_session.enveloppe : 384 octets (RSA-OAEP-SHA-256)
+  livraison\export.csv.chiffre : 788 octets (AES-256-GCM)
+La clé de session n'est écrite nulle part en clair.
+
+$ py echanger_cle.py ouvrir livraison partenaire\partenaire_prive.pem export_recu.csv
+Enveloppe ouverte — clé de session récupérée, empreinte SHA-256 : a066f3f4ab508897…
+Export déchiffré et authentifié : export_recu.csv (760 octets)
+
+$ py test_echange.py ..\02-au-repos\donnees\export_2026-11-05.csv
+Génération des paires RSA-3072 (partenaire et attaquant)…
+1. Aller-retour
+  [OK] export identique (760 octets), même clé de session
+2. La clé de session ne voyage pas en clair
+  [OK] les 32 octets de la clé absents de l'enveloppe et du chiffré
+3. Une clé de session neuve par export
+  [OK] clés et enveloppes différentes d'un export à l'autre
+4. Enveloppe altérée
+  [OK] 1 bit inversé dans l'enveloppe : refusé
+5. Fichier altéré
+  [OK] 1 bit inversé dans l'export chiffré : refusé
+6. Interception
+  [OK] ouverture avec la clé privée d'un tiers : refusé
+7. Recombinaison
+  [OK] enveloppe de l'export 1 + fichier de l'export 2 : refusé
+
+Bilan : 7/7 contrôles réussis

@@ -1,0 +1,81 @@
+# Exécution réelle sur le poste de cours — Windows 11, Docker Desktop, nginx:1.27-alpine avec nginx/portail-valmont.conf SANS modification, client alpine:3.20 (openssl + curl) — 13/11/2026 16:56-16:57
+
+$  cd ..\06-tls
+
+$  py lab\generer_certificats_lab.py lab\certs
+Certificats de laboratoire créés dans lab\certs/ :
+  ca.pem         autorité « Valmont Lab CA », valable 365 jours
+  fullchain.pem  portail.labo-valmont.fr, signé par l'autorité, valable 90 jours (ECDSA P-256)
+  privkey.pem    clé privée du serveur (exclue du dépôt par .gitignore)
+
+$  docker compose up -d
+[+] up 13/13
+ ✔ Image nginx:1.27-alpine   Pulled                                                                                20.3s
+ ✔ Network 06-tls_lab        Created                                                                                0.1s
+ ✔ Container valmont-portail Started                                                                                0.7s
+
+What's next:
+    Filter, search, and stream logs from all your Compose services
+    in one place with Docker Desktop's Logs view. docker-desktop://dashboard/logs
+
+$  docker compose run --rm verif
+[+]  1/1t 1/11
+ ✔ Container valmont-portail Running                                                                                0.0s
+Image alpine:3.20 Pulling
+Image alpine:3.20 Pulled
+Container 06-tls-verif-run-b42b18e2331e Creating
+Container 06-tls-verif-run-b42b18e2331e Created
+Cible : https://portail.labo-valmont.fr  (connexion portail.labo-valmont.fr:443)
+
+Point 1 — Versions : TLS 1.2 et 1.3 uniquement
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [OK] tls1 refusé par le serveur
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [OK] tls1_1 refusé par le serveur
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2    attendu : poignée de main réussie
+  [OK] tls1_2 accepté — New, TLSv1.2, Cipher is ECDHE-ECDSA-AES256-GCM-SHA384
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_3    attendu : poignée de main réussie
+  [OK] tls1_3 accepté — New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+
+Point 2 — Suites AEAD uniquement
+  $ (essai de chacune des suites TLS 1.2 connues d'OpenSSL, une par une)
+    suites TLS 1.2 acceptées : ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-ECDSA-AES128-GCM-SHA256
+  [OK] TLS 1.2 : uniquement des suites AEAD
+    TLS 1.3 : TLS_AES_128_GCM_SHA256 acceptée
+    TLS 1.3 : TLS_AES_256_GCM_SHA384 acceptée
+    TLS 1.3 : TLS_CHACHA20_POLY1305_SHA256 acceptée
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2 -cipher ECDHE-RSA-AES128-SHA256    attendu : refus (CBC)
+  [OK] suite CBC refusée
+
+Point 3 — En-tête HSTS avec includeSubDomains
+  $ curl -sI --cacert /lab/certs/ca.pem https://portail.labo-valmont.fr/    attendu : strict-transport-security: max-age=63072000; includeSubDomains
+    strict-transport-security: max-age=63072000; includeSubDomains
+  [OK] HSTS présent, deux ans, sous-domaines inclus
+  [OK] HSTS renvoyé aussi sur une réponse 404 (« always »)
+
+Point 4 — Redirection HTTP → HTTPS
+  $ curl -sI http://portail.labo-valmont.fr/resultats?id=42    attendu : 301 vers https://portail.labo-valmont.fr/resultats?id=42
+    HTTP/1.1 301 Moved Permanently
+    Location: https://portail.labo-valmont.fr/resultats?id=42
+  [OK] redirection permanente vers HTTPS, chemin et paramètres conservés
+  $ curl -sI -H 'Host: site-pirate.example' http://portail.labo-valmont.fr/    attendu : redirection vers le VRAI nom
+    Location: https://portail.labo-valmont.fr/
+  [OK] en-tête Host forgé ignoré
+
+Point 5 — Certificat et chaîne de confiance
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -servername portail.labo-valmont.fr -verify_hostname portail.labo-valmont.fr -verify_return_error -CAfile /lab/certs/ca.pem
+    depth=1 C=FR, O=Laboratoire Valmont (TP), CN=Valmont Lab CA
+    depth=0 CN=portail.labo-valmont.fr
+    subject=CN=portail.labo-valmont.fr
+    issuer=C=FR, O=Laboratoire Valmont (TP), CN=Valmont Lab CA
+    Verify return code: 0 (ok)
+  [OK] chaîne valide, nom vérifié
+  $ openssl x509 -noout -enddate -checkend 2592000    attendu : expire dans plus de 30 jours
+  [OK] expire le Feb 11 15:56:44 2027 GMT (> 30 jours)
+  $ curl -s -o /dev/null -w '%{http_code} %{ssl_verify_result}' --cacert /lab/certs/ca.pem https://portail.labo-valmont.fr/    attendu : 200 0
+    200 0
+  [OK] curl : page servie, certificat vérifié par le client
+  $ curl https://portail.labo-valmont.fr/   (SANS --cacert : magasin de confiance du système)    attendu en labo : refus
+  [OK] refusé : l'autorité du laboratoire n'est pas une autorité publique (limite de la simulation)
+
+Bilan : 14 contrôle(s) réussi(s), 0 échec(s)

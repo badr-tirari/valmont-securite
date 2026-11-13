@@ -1,0 +1,59 @@
+# Garde-fous n° 1 et n° 2, côté chaîne d'intégration continue (GitHub Actions).
+#
+# Prérequis dans les paramètres du dépôt :
+#   - branche main protégée : le job « secrets » est un contrôle REQUIS ;
+#   - environnement « production » : branche main uniquement + approbation manuelle d'un relecteur ;
+#   - aucun secret longue durée stocké : l'accès au coffre passe par OIDC.
+
+name: garde-fous
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read            # par défaut : lecture seule, aucun droit superflu
+
+jobs:
+  # ---------------------------------------------------------------- garde-fou n° 1
+  secrets:
+    name: Détection de secrets (tout l'historique)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # tout l'historique, pas seulement le dernier commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ---------------------------------------------------------------- garde-fou n° 2
+  deploy:
+    name: Déploiement
+    needs: secrets          # pas de déploiement si un secret a été détecté
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production # approbation manuelle requise ; secrets visibles de ce seul job
+    permissions:
+      contents: read
+      id-token: write       # OIDC : jeton fédéré de quelques minutes, aucun secret stocké
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authentification au coffre par OIDC
+        id: coffre
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://coffre.valmont.internal
+          method: jwt
+          role: valmont-deploy-prod      # lié à ce dépôt, à main et à l'environnement production
+          secrets: |
+            kv/data/valmont/prod/ssh-deploy cle | SSH_DEPLOY_KEY
+
+      - name: Déployer
+        env:
+          SSH_DEPLOY_KEY: ${{ steps.coffre.outputs.SSH_DEPLOY_KEY }}
+        run: |
+          set +x                           # jamais de trace des commandes ici
+          ./scripts/deploy.sh               # lit la clé depuis l'environnement, ne l'affiche jamais

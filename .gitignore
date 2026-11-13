@@ -1,0 +1,14 @@
+# Jamais dans le dépôt : clés privées, données déchiffrées, artefacts de test
+*.pem
+!03-echange-de-cle/partenaire/partenaire_public.pem
+!04-signature/cles/biologiste_public.pem
+export_recu.csv
+export_dechiffre.csv
+cle_session.bin
+08-incident/archive/
+journal_cles.log
+journal_rotation.csv
+06-tls/lab/certs/
+__pycache__/
+*.tmp
+.env

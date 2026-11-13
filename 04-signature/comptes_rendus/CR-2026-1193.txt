@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1193
+nir: 201043115506190
+nom: Da Costa
+prenom: Inès
+analyse: Sodium
+valeur: 139
+unite: mmol/L
+rendu_le: 2026-11-05 12:33:00
+biologiste: Dr A. Kessler

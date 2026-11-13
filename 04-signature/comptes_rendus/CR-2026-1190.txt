@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1190
+nir: 164051309502867
+nom: Oliveira
+prenom: Damien
+analyse: Cholestérol LDL
+valeur: 1.22
+unite: g/L
+rendu_le: 2026-11-05 09:26:00
+biologiste: Dr A. Kessler

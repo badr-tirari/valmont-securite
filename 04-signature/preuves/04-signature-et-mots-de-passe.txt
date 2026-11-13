@@ -1,0 +1,103 @@
+# Preuves — hachage SHA-256 et signature Ed25519 des comptes rendus, mots de passe PBKDF2
+# Exécution du 13/11/2026 16:38 — Python 3.13.18, cryptography 50.0.1, OpenSSL 3.0.13, base MariaDB 10.11
+
+## Partie 1 — Signature des comptes rendus
+
+$ python signer.py generer-cle cles
+Paire Ed25519 du Dr A. Kessler créée dans cles/
+  biologiste_prive.pem  → reste chez le biologiste (chiffrée par sa phrase de passe)
+  biologiste_public.pem → diffusée au partenaire pour vérifier
+
+$ python signer.py signer ../02-au-repos/donnees/export_2026-11-05.csv cles/biologiste_prive.pem comptes_rendus
+  CR-2026-1187.txt  SHA-256 f9fb0d286c09d100…  signature 6ff77b2c1c62d2f3…
+  CR-2026-1188.txt  SHA-256 5e2ba4b1566df52f…  signature fd92d4bb7f79cfe7…
+  CR-2026-1189.txt  SHA-256 e3befc9f62ebf5d6…  signature cf7d7443b53437e5…
+  CR-2026-1190.txt  SHA-256 ff6bfeb2a9275278…  signature 40a5625070a304a7…
+  CR-2026-1191.txt  SHA-256 926ff53d5244cfdd…  signature fe286f4131b8c797…
+  CR-2026-1192.txt  SHA-256 856ebc07d2fd0ad0…  signature cef638bbe2dfb326…
+  CR-2026-1193.txt  SHA-256 d28553e5cfbf600a…  signature 7311d782b1e7e74d…
+7 compte(s) rendu(s) haché(s) et signé(s) dans comptes_rendus/
+
+$ type comptes_rendus/CR-2026-1189.txt
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1189
+nir: 285075921504281
+nom: Marchand
+prenom: Alicie
+analyse: Glycémie à jeun
+valeur: 1.08
+unite: g/L
+rendu_le: 2026-11-05 08:12:00
+biologiste: Dr A. Kessler
+
+$ python verifier.py comptes_rendus cles/biologiste_public.pem   -- côté partenaire
+  [OK] CR-2026-1187.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1188.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1189.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1190.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1191.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1192.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1193.txt     empreinte conforme      signature valide
+7/7 compte(s) rendu(s) accepté(s)
+code retour = 0
+
+## Vérification indépendante avec des outils standards
+$ sha256sum -c comptes_rendus/CR-2026-1189.txt.sha256
+CR-2026-1189.txt: OK
+$ openssl pkeyutl -verify -pubin -inkey cles/biologiste_public.pem -rawin -in comptes_rendus/CR-2026-1189.txt -sigfile comptes_rendus/CR-2026-1189.txt.sig
+Signature Verified Successfully
+
+## Preuve : un document modifié ne passe pas
+$ python test_signature.py comptes_rendus cles/biologiste_public.pem
+Document testé : CR-2026-1189.txt
+A. Document intact
+  [OK] original → ACCEPTÉ (empreinte conforme, signature valide)
+B. Résultat falsifié
+  [OK] glycémie 1.08 → 0.98 → REJETÉ (empreinte NON CONFORME, signature INVALIDE)
+C. Falsifié + empreinte recalculée par l'attaquant
+  [OK] empreinte mise à jour, signature d'origine → REJETÉ (empreinte conforme, signature INVALIDE)
+D. Signature d'un autre compte rendu recopiée
+  [OK] signature de CR-2026-1187 sur CR-2026-1189 → REJETÉ (empreinte conforme, signature INVALIDE)
+E. Re-signé par un imposteur
+  [OK] document falsifié signé avec une autre clé privée → REJETÉ (empreinte conforme, signature INVALIDE)
+F. Fins de ligne converties en CRLF
+  [OK] même texte, octets différents → REJETÉ (empreinte NON CONFORME, signature INVALIDE)
+
+Bilan : 6/6 contrôles réussis
+
+$ (openssl sur le document falsifié)
+$ openssl pkeyutl -verify … -in CR-2026-1189-falsifie.txt -sigfile comptes_rendus/CR-2026-1189.txt.sig
+Signature Verification Failure
+
+## Partie 2 — Mots de passe du portail (PBKDF2-HMAC-SHA-256, 100 000 itérations)
+
+$ python mots_de_passe.py initialiser
+Table comptes_portail chargée : 6 comptes.
+
+$ python mots_de_passe.py preuve
+  [OK] marchand.a  bon mot de passe                              → acceptée  (31 ms)
+  [OK] marchand.a  une majuscule de différence                   → refusée   (24 ms)
+  [OK] marchand.a  espace en trop                                → refusée   (23 ms)
+  [OK] marchand.a  mot de passe vide                             → refusée   (21 ms)
+  [OK] ferrand.b   même mot de passe, autre compte (autre sel)   → refusée   (21 ms)
+  [OK] inconnu.x   identifiant inexistant                        → refusée   (23 ms)
+
+Piège du sel : le sel hexadécimal doit être décodé en octets
+  stockée                     : 452eacfe75a54c3d374ad9fa037eb8d59e13e3a7f9690e995df588b66d9c99a6
+  sel décodé (bytes.fromhex)  : 452eacfe75a54c3d374ad9fa037eb8d59e13e3a7f9690e995df588b66d9c99a6  = identique
+  sel pris comme texte        : a39ecb56c9e54be327c47ec6dc60c2ffe18ffdf1436fffbd63e4ee040604c80a  ≠ différente
+
+Bilan : 7/7 contrôles réussis
+
+$ SELECT identifiant, sel, empreinte FROM comptes_portail LIMIT 3;   -- aucun mot de passe en base
++-------------+----------------------------------+----------------------------------+
+| identifiant | sel                              | empreinte_debut                  |
++-------------+----------------------------------+----------------------------------+
+| marchand.a  | 9f2c41b0d7e38a5c614f0b9d2e77a3c4 | 452eacfe75a54c3d374ad9fa037eb8d5 |
+| ferrand.b   | 31b8ae04c9d25f7e0a6c18bd45f2e970 | 56df327891eebd7b5d235a7ff12ed34f |
+| bensaid.c   | c47d9e12f308a5b6de9174c0825b3af1 | be04bae8b804547c31689121719fe028 |
++-------------+----------------------------------+----------------------------------+
+
+$ (base arrêtée) python mots_de_passe.py preuve   -- message d erreur sobre
+Erreur : base de données injoignable (le conteneur valmont-mysql est-il démarré ?).
+code retour = 1

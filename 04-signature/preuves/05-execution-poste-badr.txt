@@ -1,0 +1,65 @@
+# Exécution réelle sur le poste de cours — Windows 11, PowerShell, Python 3.14.5, cryptography 50.0.2, conteneur mysql:8.4 — 13/11/2026 16:40-16:42
+
+$  cd ..\04-signature
+
+$  $env:VALMONT_PASSPHRASE_BIOLOGISTE = "********"  # valeur masquée (constat F3)
+
+$  py signer.py generer-cle cles
+Paire Ed25519 du Dr A. Kessler créée dans cles/
+  biologiste_prive.pem  → reste chez le biologiste (chiffrée par sa phrase de passe)
+  biologiste_public.pem → diffusée au partenaire pour vérifier
+
+$  py signer.py signer ..\02-au-repos\donnees\export_2026-11-05.csv cles\biologiste_prive.pem comptes_rendus
+  CR-2026-1187.txt  SHA-256 f9fb0d286c09d100…  signature 687ae2260043684f…
+  CR-2026-1188.txt  SHA-256 5e2ba4b1566df52f…  signature 2f3cb08525e810f5…
+  CR-2026-1189.txt  SHA-256 e3befc9f62ebf5d6…  signature 1f72251928f181bf…
+  CR-2026-1190.txt  SHA-256 ff6bfeb2a9275278…  signature 5fee31f36580ffc8…
+  CR-2026-1191.txt  SHA-256 926ff53d5244cfdd…  signature 36b524292109c160…
+  CR-2026-1192.txt  SHA-256 856ebc07d2fd0ad0…  signature f508d3365830ff8c…
+  CR-2026-1193.txt  SHA-256 d28553e5cfbf600a…  signature cfa2f517560ec8ca…
+7 compte(s) rendu(s) haché(s) et signé(s) dans comptes_rendus/
+
+$  py verifier.py comptes_rendus cles\biologiste_public.pem
+  [OK] CR-2026-1187.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1188.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1189.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1190.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1191.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1192.txt     empreinte conforme      signature valide
+  [OK] CR-2026-1193.txt     empreinte conforme      signature valide
+7/7 compte(s) rendu(s) accepté(s)
+
+$  py test_signature.py comptes_rendus cles\biologiste_public.pem
+Document testé : CR-2026-1189.txt
+A. Document intact
+  [OK] original → ACCEPTÉ (empreinte conforme, signature valide)
+B. Résultat falsifié
+  [OK] glycémie 1.08 → 0.98 → REJETÉ (empreinte NON CONFORME, signature INVALIDE)
+C. Falsifié + empreinte recalculée par l'attaquant
+  [OK] empreinte mise à jour, signature d'origine → REJETÉ (empreinte conforme, signature INVALIDE)
+D. Signature d'un autre compte rendu recopiée
+  [OK] signature de CR-2026-1187 sur CR-2026-1189 → REJETÉ (empreinte conforme, signature INVALIDE)
+E. Re-signé par un imposteur
+  [OK] document falsifié signé avec une autre clé privée → REJETÉ (empreinte conforme, signature INVALIDE)
+F. Fins de ligne converties en CRLF
+  [OK] même texte, octets différents → REJETÉ (empreinte NON CONFORME, signature INVALIDE)
+
+Bilan : 6/6 contrôles réussis
+
+$  py mots_de_passe.py initialiser
+Table comptes_portail chargée : 6 comptes.
+
+$  py mots_de_passe.py preuve
+  [OK] marchand.a  bon mot de passe                              → acceptée  (96 ms)
+  [OK] marchand.a  une majuscule de différence                   → refusée   (93 ms)
+  [OK] marchand.a  espace en trop                                → refusée   (90 ms)
+  [OK] marchand.a  mot de passe vide                             → refusée   (78 ms)
+  [OK] ferrand.b   même mot de passe, autre compte (autre sel)   → refusée   (78 ms)
+  [OK] inconnu.x   identifiant inexistant                        → refusée   (77 ms)
+
+Piège du sel : le sel hexadécimal doit être décodé en octets
+  stockée                     : 452eacfe75a54c3d374ad9fa037eb8d59e13e3a7f9690e995df588b66d9c99a6
+  sel décodé (bytes.fromhex)  : 452eacfe75a54c3d374ad9fa037eb8d59e13e3a7f9690e995df588b66d9c99a6  = identique
+  sel pris comme texte        : a39ecb56c9e54be327c47ec6dc60c2ffe18ffdf1436fffbd63e4ee040604c80a  ≠ différente
+
+Bilan : 7/7 contrôles réussis

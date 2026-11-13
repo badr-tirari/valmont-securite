@@ -1,0 +1,5 @@
+partenaire/partenaire_prive.pem
+*.pem.bak
+cle_session.bin
+export_recu.csv
+__pycache__/

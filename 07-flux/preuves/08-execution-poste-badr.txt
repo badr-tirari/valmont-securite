@@ -1,0 +1,30 @@
+# Exécution réelle sur le poste de cours — Windows 11, PowerShell, Python 3.14.5 — 13/11/2026 17:02
+# (clé de pseudonymisation différente de celle de 07-minimisation.txt : jetons différents, mêmes contrôles)
+
+$ $env:VALMONT_CLE_PSEUDO = py ..\02-au-repos\generer_cle.py
+
+$ py minimiser_pour_entrepot.py ..\02-au-repos\sql\01-patients.sql sortie
+Source : 15 fiches, 12 colonnes
+Entrepôt : 15 lignes, 8 colonnes → sortie\entrepot_resultats.csv
+  supprimées : nom, prenom, email, telephone, adresse, date_naissance, nir, id
+  transformées : nir → pseudo_patient (HMAC), date_naissance → tranche_age, adresse → region, rendu_le → mois_rendu
+
+Contrôle 1 — aucun identifiant direct dans l'entrepôt
+  [OK] 90 valeurs d'identifiants cherchées, 0 retrouvée(s)
+
+Contrôle 2 — le jeton ne se recalcule pas sans la clé
+  jeton dans l'entrepôt       : 853314700334a590
+  SHA-256(NIR) sans clé       : 8656ddd0ae2e3ce0  ≠ (énumération des NIR inutile)
+
+Contrôle 3 — risque de ré-identification (k-anonymat sur les quasi-identifiants)
+  k = 1  avec le département (choix écarté)                   — 15/15 ligne(s) unique(s)
+  k = 1  avec la région (choix retenu, ligne individuelle)    — 15/15 ligne(s) unique(s)
+  k = 1  tableau de bord (tranche d'âge seule)                — 1/15 ligne(s) unique(s)
+
+Tableau de bord : 15 case(s), 15 masquée(s) (< 5 résultats) → sortie\tableau_de_bord.csv
+
+Conclusion :
+  - pseudonymiser ne suffit pas à anonymiser : même sexe + tranche d'âge + région isole chaque fiche ;
+    l'entrepôt reste une donnée PERSONNELLE de santé (RGPD applicable, accès restreint, durée limitée) ;
+  - sur 15 fiches, aucune case n'atteint 5 : RIEN n'est publiable dans un tableau de bord.
+    Au volume réel (des milliers de résultats par mois), les cases fréquentes passent le seuil, les rares restent masquées.

@@ -1,0 +1,118 @@
+# Preuves — configuration TLS du portail (5 points de la politique interne)
+# Exécution du 13/11/2026 16:54 — nginx 1.24.0 (Ubuntu) avec nginx/portail-valmont.conf, certificats de la mini-PKI de laboratoire ; client OpenSSL 3.0.13, curl 8.5.0
+# (seule adaptation pour nginx 1.24 : « listen 443 ssl http2 » au lieu de « http2 on », lignes IPv6 retirées)
+
+Cible : https://portail.labo-valmont.fr  (connexion portail.labo-valmont.fr:443)
+
+Point 1 — Versions : TLS 1.2 et 1.3 uniquement
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [OK] tls1 refusé par le serveur
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [OK] tls1_1 refusé par le serveur
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2    attendu : poignée de main réussie
+  [OK] tls1_2 accepté — New, TLSv1.2, Cipher is ECDHE-ECDSA-AES256-GCM-SHA384
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_3    attendu : poignée de main réussie
+  [OK] tls1_3 accepté — New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+
+Point 2 — Suites AEAD uniquement
+  $ (essai de chacune des suites TLS 1.2 connues d'OpenSSL, une par une)
+    suites TLS 1.2 acceptées : ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-ECDSA-AES128-GCM-SHA256
+  [OK] TLS 1.2 : uniquement des suites AEAD
+    TLS 1.3 : TLS_AES_128_GCM_SHA256 acceptée
+    TLS 1.3 : TLS_AES_256_GCM_SHA384 acceptée
+    TLS 1.3 : TLS_CHACHA20_POLY1305_SHA256 acceptée
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2 -cipher ECDHE-RSA-AES128-SHA256    attendu : refus (CBC)
+  [OK] suite CBC refusée
+
+Point 3 — En-tête HSTS avec includeSubDomains
+  $ curl -sI --cacert certs/ca.pem https://portail.labo-valmont.fr/    attendu : strict-transport-security: max-age=63072000; includeSubDomains
+    strict-transport-security: max-age=63072000; includeSubDomains
+  [OK] HSTS présent, deux ans, sous-domaines inclus
+  [OK] HSTS renvoyé aussi sur une réponse 404 (« always »)
+
+Point 4 — Redirection HTTP → HTTPS
+  $ curl -sI http://portail.labo-valmont.fr/resultats?id=42    attendu : 301 vers https://portail.labo-valmont.fr/resultats?id=42
+    HTTP/1.1 301 Moved Permanently
+    Location: https://portail.labo-valmont.fr/resultats?id=42
+  [OK] redirection permanente vers HTTPS, chemin et paramètres conservés
+  $ curl -sI -H 'Host: site-pirate.example' http://portail.labo-valmont.fr/    attendu : redirection vers le VRAI nom
+    Location: https://portail.labo-valmont.fr/
+  [OK] en-tête Host forgé ignoré
+
+Point 5 — Certificat et chaîne de confiance
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -servername portail.labo-valmont.fr -verify_hostname portail.labo-valmont.fr -verify_return_error -CAfile certs/ca.pem
+    depth=1 C = FR, O = Laboratoire Valmont (TP), CN = Valmont Lab CA
+    depth=0 CN = portail.labo-valmont.fr
+    subject=CN = portail.labo-valmont.fr
+    issuer=C = FR, O = Laboratoire Valmont (TP), CN = Valmont Lab CA
+    Verify return code: 0 (ok)
+  [OK] chaîne valide, nom vérifié
+  $ openssl x509 -noout -enddate -checkend 2592000    attendu : expire dans plus de 30 jours
+  [OK] expire le Feb 11 15:53:35 2027 GMT (> 30 jours)
+  $ curl -s -o /dev/null -w '%{http_code} %{ssl_verify_result}' --cacert certs/ca.pem https://portail.labo-valmont.fr/    attendu : 200 0
+    200 0
+  [OK] curl : page servie, certificat vérifié par le client
+  $ curl https://portail.labo-valmont.fr/   (SANS --cacert : magasin de confiance du système)    attendu en labo : refus
+  [OK] refusé : l'autorité du laboratoire n'est pas une autorité publique (limite de la simulation)
+
+Bilan : 14 contrôle(s) réussi(s), 0 échec(s)
+code retour = 0
+
+================================================================================
+# CONTRE-ÉPREUVE — le même script contre une configuration volontairement mauvaise :
+#   ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  ssl_ciphers ALL:@SECLEVEL=0;  ni HSTS ni redirection
+# Il DOIT échouer : c'est la preuve que les contrôles discriminent.
+================================================================================
+
+Cible : https://portail.labo-valmont.fr  (connexion portail.labo-valmont.fr:443)
+
+Point 1 — Versions : TLS 1.2 et 1.3 uniquement
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [ÉCHEC] tls1 ACCEPTÉ
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_1 -cipher 'DEFAULT:@SECLEVEL=0'    attendu : refus
+  [ÉCHEC] tls1_1 ACCEPTÉ
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2    attendu : poignée de main réussie
+  [OK] tls1_2 accepté — New, TLSv1.2, Cipher is ECDHE-ECDSA-AES256-GCM-SHA384
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_3    attendu : poignée de main réussie
+  [ÉCHEC] tls1_3 refusé
+
+Point 2 — Suites AEAD uniquement
+  $ (essai de chacune des suites TLS 1.2 connues d'OpenSSL, une par une)
+    suites TLS 1.2 acceptées : ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-ECDSA-CHACHA20-POLY1305 ECDHE-ECDSA-AES256-CCM8 ECDHE-ECDSA-AES256-CCM ECDHE-ECDSA-ARIA256-GCM-SHA384 ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES128-CCM8 ECDHE-ECDSA-AES128-CCM ECDHE-ECDSA-ARIA128-GCM-SHA256 ECDHE-ECDSA-AES256-SHA384 ECDHE-ECDSA-CAMELLIA256-SHA384 ECDHE-ECDSA-AES128-SHA256 ECDHE-ECDSA-CAMELLIA128-SHA256
+  [ÉCHEC] suites non AEAD acceptées : ECDHE-ECDSA-AES256-SHA384 ECDHE-ECDSA-CAMELLIA256-SHA384 ECDHE-ECDSA-AES128-SHA256 ECDHE-ECDSA-CAMELLIA128-SHA256
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -tls1_2 -cipher ECDHE-RSA-AES128-SHA256    attendu : refus (CBC)
+  [ÉCHEC] suite CBC acceptée
+
+Point 3 — En-tête HSTS avec includeSubDomains
+  $ curl -sI --cacert certs/ca.pem https://portail.labo-valmont.fr/    attendu : strict-transport-security: max-age=63072000; includeSubDomains
+    
+  [ÉCHEC] HSTS absent ou incomplet
+  [ÉCHEC] HSTS absent sur les erreurs
+
+Point 4 — Redirection HTTP → HTTPS
+  $ curl -sI http://portail.labo-valmont.fr/resultats?id=42    attendu : 301 vers https://portail.labo-valmont.fr/resultats?id=42
+    HTTP/1.1 404 Not Found
+    
+  [ÉCHEC] pas de redirection 301 vers HTTPS
+  $ curl -sI -H 'Host: site-pirate.example' http://portail.labo-valmont.fr/    attendu : redirection vers le VRAI nom
+    
+  [ÉCHEC] redirection vers un nom fourni par le client
+
+Point 5 — Certificat et chaîne de confiance
+  $ openssl s_client -connect portail.labo-valmont.fr:443 -servername portail.labo-valmont.fr -verify_hostname portail.labo-valmont.fr -verify_return_error -CAfile certs/ca.pem
+    depth=1 C = FR, O = Laboratoire Valmont (TP), CN = Valmont Lab CA
+    depth=0 CN = portail.labo-valmont.fr
+    subject=CN = portail.labo-valmont.fr
+    issuer=C = FR, O = Laboratoire Valmont (TP), CN = Valmont Lab CA
+        Verify return code: 0 (ok)
+  [OK] chaîne valide, nom vérifié
+  $ openssl x509 -noout -enddate -checkend 2592000    attendu : expire dans plus de 30 jours
+  [OK] expire le Feb 11 15:53:35 2027 GMT (> 30 jours)
+  $ curl -s -o /dev/null -w '%{http_code} %{ssl_verify_result}' --cacert certs/ca.pem https://portail.labo-valmont.fr/    attendu : 200 0
+    200 0
+  [OK] curl : page servie, certificat vérifié par le client
+  $ curl https://portail.labo-valmont.fr/   (SANS --cacert : magasin de confiance du système)    attendu en labo : refus
+  [OK] refusé : l'autorité du laboratoire n'est pas une autorité publique (limite de la simulation)
+
+Bilan : 5 contrôle(s) réussi(s), 9 échec(s)
+code retour = 1

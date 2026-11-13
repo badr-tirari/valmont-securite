@@ -1,0 +1,58 @@
+# Preuves — échange hybride de la clé de session (RSA-3072-OAEP + AES-256-GCM)
+# Exécution du 13/11/2026 16:29 — Python 3.13.18, cryptography 50.0.1, OpenSSL 3.0.13
+
+## Côté PARTENAIRE — création de sa paire de clés
+$ python echanger_cle.py generer-partenaire partenaire
+Paire RSA-3072 du partenaire créée dans partenaire/
+  partenaire_prive.pem  → reste chez le partenaire (chiffrée par sa phrase de passe)
+  partenaire_public.pem → transmise au labo
+  empreinte de la clé publique : f8:3b:99:d3:5a:68:9a:c1…b48f7f56
+
+$ (début de partenaire_prive.pem : la clé privée est chiffrée par la phrase de passe)
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+
+## Côté LABO — envelopper la clé de session
+$ python echanger_cle.py envelopper ../02-au-repos/donnees/export_2026-11-05.csv partenaire/partenaire_public.pem livraison
+Clé publique du partenaire : f8:3b:99:d3:5a:68:9a:c1…b48f7f56 (à comparer avec l'empreinte annoncée par le partenaire)
+Clé de session tirée (32 octets) — empreinte SHA-256 : 977e5d8fc31281ee…
+  livraison/cle_session.enveloppe : 384 octets (RSA-OAEP-SHA-256)
+  livraison/export.csv.chiffre : 788 octets (AES-256-GCM)
+La clé de session n'est écrite nulle part en clair.
+
+## Côté PARTENAIRE — ouvrir
+$ python echanger_cle.py ouvrir livraison partenaire/partenaire_prive.pem export_recu.csv
+Enveloppe ouverte — clé de session récupérée, empreinte SHA-256 : 977e5d8fc31281ee…
+Export déchiffré et authentifié : /tmp/export_recu.csv (760 octets)
+$ comparaison avec l export d origine
+fichiers identiques
+
+## Vérification indépendante avec openssl (côté partenaire)
+$ openssl pkeyutl -decrypt -inkey partenaire/partenaire_prive.pem -passin env:VALMONT_PASSPHRASE_PARTENAIRE -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 -in livraison/cle_session.enveloppe -out cle_session.bin
+taille de la clé récupérée : 32 octets
+$ openssl dgst -sha256 cle_session.bin   -- même empreinte que celle affichée par Python
+SHA2-256(cle_session.bin)= 977e5d8fc31281eeb8724a282f6022f060c9f0bbc82ee90ee7de28ca81ac4e11
+
+## Ouverture avec une mauvaise phrase de passe
+$ (VALMONT_PASSPHRASE_PARTENAIRE=mauvaise) python echanger_cle.py ouvrir …
+Échec : clé privée illisible (phrase de passe incorrecte ?).
+code retour = 1
+
+## Contrôles automatisés
+$ python test_echange.py ../02-au-repos/donnees/export_2026-11-05.csv
+Génération des paires RSA-3072 (partenaire et attaquant)…
+1. Aller-retour
+  [OK] export identique (760 octets), même clé de session
+2. La clé de session ne voyage pas en clair
+  [OK] les 32 octets de la clé absents de l'enveloppe et du chiffré
+3. Une clé de session neuve par export
+  [OK] clés et enveloppes différentes d'un export à l'autre
+4. Enveloppe altérée
+  [OK] 1 bit inversé dans l'enveloppe : refusé
+5. Fichier altéré
+  [OK] 1 bit inversé dans l'export chiffré : refusé
+6. Interception
+  [OK] ouverture avec la clé privée d'un tiers : refusé
+7. Recombinaison
+  [OK] enveloppe de l'export 1 + fichier de l'export 2 : refusé
+
+Bilan : 7/7 contrôles réussis

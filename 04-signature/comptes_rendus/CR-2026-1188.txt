@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1188
+nir: 172033421805614
+nom: Ferrand
+prenom: Bruno
+analyse: Créatinine
+valeur: 88
+unite: µmol/L
+rendu_le: 2026-11-05 07:41:00
+biologiste: Dr A. Kessler

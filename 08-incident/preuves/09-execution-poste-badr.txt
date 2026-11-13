@@ -1,0 +1,109 @@
+# Exécution réelle sur le poste de cours — Windows 11, PowerShell, Python 3.14.5, cryptography 50.0.2, dossier OneDrive — 13/11/2026 17:08-17:13
+# (valeurs des clés $v1 et $v2 jamais affichées)
+
+$  $v1 = py ..\02-au-repos\generer_cle.py
+
+$  $env:VALMONT_TROUSSEAU_K3 = "k3-v1=$v1"
+
+$  $env:VALMONT_K3_ACTIVE = "k3-v1"
+
+$  py rotation.py simuler-archive archive 30
+Archive simulée : 30 exports du 2026-10-07 au 2026-11-05, chiffrés par k3-v1 (format étape 2)
+
+$  $v2 = py ..\02-au-repos\generer_cle.py
+
+$  $env:VALMONT_TROUSSEAU_K3 = "k3-v1=$v1;k3-v2=$v2"
+
+$  $env:VALMONT_K3_ACTIVE = "k3-v2"
+
+$  $env:VALMONT_K3_LECTURE = "k3-v1"
+
+$  py rotation.py consommateurs archive
+  [OK] traitement de nuit : export_2026-11-06.csv.chiffre écrit avec k3-v2
+  [OK] application       : dernier export relu
+  [OK] entrepôt          : 31 exports relus (k3-v1 : 30, k3-v2 : 1)
+  Service : aucune interruption
+
+$  py rotation.py rechiffrer archive --lot 10
+  export_2026-10-07.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-08.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-09.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-10.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-11.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-12.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-13.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-14.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-15.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-16.csv.chiffre : k3-v1 → k3-v2
+Lot terminé : 10 fichier(s) ré-chiffré(s), 20 restant(s) sur une autre clé
+
+$  py rotation.py rechiffrer archive --lot 10 --panne-apres 3
+  export_2026-10-17.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-18.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-19.csv.chiffre : k3-v1 → k3-v2
+  ⚡ PANNE SIMULÉE pendant export_2026-10-20.csv.chiffre : export_2026-10-20.csv.chiffre.tmp écrit, original pas encore remplacé
+
+$  py rotation.py inventaire archive
+  k3-v1 :  17 fichier(s)  █████████████████
+  k3-v2 :  14 fichier(s)  ██████████████
+  total : 31 fichier(s) — 1 fichier(s) temporaire(s) d'une migration interrompue
+
+$  py rotation.py consommateurs archive
+  [OK] traitement de nuit : export_2026-11-07.csv.chiffre écrit avec k3-v2
+  [OK] application       : dernier export relu
+  [OK] entrepôt          : 32 exports relus (k3-v1 : 17, k3-v2 : 15)
+  Service : aucune interruption
+
+$  py rotation.py rechiffrer archive
+  reprise : export_2026-10-20.csv.chiffre.tmp abandonné (l'original est intact)
+  export_2026-10-20.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-21.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-22.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-23.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-24.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-25.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-26.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-27.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-28.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-29.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-30.csv.chiffre : k3-v1 → k3-v2
+  export_2026-10-31.csv.chiffre : k3-v1 → k3-v2
+  export_2026-11-01.csv.chiffre : k3-v1 → k3-v2
+  export_2026-11-02.csv.chiffre : k3-v1 → k3-v2
+  export_2026-11-03.csv.chiffre : k3-v1 → k3-v2
+  export_2026-11-04.csv.chiffre : k3-v1 → k3-v2
+  export_2026-11-05.csv.chiffre : k3-v1 → k3-v2
+Lot terminé : 17 fichier(s) ré-chiffré(s), 0 restant(s) sur une autre clé
+$ py rotation.py preuve-completude archive k3-v1
+1. Inventaire de l'archive (en-têtes) — aucun fichier ne doit encore dépendre de k3-v1
+   {'k3-v2': 32}
+   [OK] 0 fichier(s) sur k3-v1
+2. Journal d'usage des clés — k3-v1 n'a-t-elle plus rien chiffré depuis son isolement ?
+   isolement (bascule vers la nouvelle clé active) : 2026-11-13T17:09:50
+   [OK] 0 écriture(s) fautive(s) détectée(s), 0 non traitée(s)
+3. Test de retrait — tout relire avec un trousseau SANS k3-v1
+   [OK] 32/32 fichiers relus sans k3-v1 ; contenu identique à l'avant-migration (SHA-256) : 30/30
+
+VERDICT : k3-v1 n'est plus nécessaire → la retirer du Coffre (destruction de la version), puis purger les sauvegardes qui la contiennent.
+$ $env:VALMONT_TROUSSEAU_K3 = "k3-v2=$v2"
+$ Remove-Item Env:VALMONT_K3_LECTURE
+$ py rotation.py consommateurs archive
+  [OK] traitement de nuit : export_2026-11-08.csv.chiffre écrit avec k3-v2
+  [OK] application       : dernier export relu
+  [OK] entrepôt          : 33 exports relus (k3-v2 : 33)
+  Service : aucune interruption
+$ py mesure_cout.py
+A. Export nocturne réel (0.001 Mo, médiane de 2000 lectures)
+  lecture du clair              :     0.071 ms
+  lecture + déchiffrement GCM   :     0.081 ms
+  surcoût                       :     0.010 ms  (×1.1)
+
+B. Export volumineux synthétique (100 000 lignes) (9.872 Mo, médiane de 50 lectures)
+  lecture du clair              :     3.198 ms
+  lecture + déchiffrement GCM   :     9.631 ms
+  surcoût                       :     6.433 ms  (×3.0)
+  débit de déchiffrement        :      1534 Mo/s
+
+C. Colonne NIR — 10 000 valeurs déchiffrées une à une (médiane de 20 passes)
+  total                         :       7.7 ms
+  par ligne                     :      0.77 µs

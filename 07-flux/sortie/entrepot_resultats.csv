@@ -1,0 +1,16 @@
+pseudo_patient,sexe,tranche_age,region,analyse,valeur,unite,mois_rendu
+853314700334a590,F,40-49,Hauts-de-France,Glycémie à jeun,1.08,g/L,2026-11
+fb013aab8abdd0e8,H,50-59,Occitanie,Créatinine,88,µmol/L,2026-11
+eb8b9ad7b08f5032,F,30-39,Île-de-France,TSH,2.1,mUI/L,2026-11
+de488253dff0710e,H,60-69,Provence-Alpes-Côte d'Azur,Cholestérol LDL,1.22,g/L,2026-11
+3e915ced42e6b221,F,40-49,Auvergne-Rhône-Alpes,HbA1c,5.4,%,2026-11
+456644a99cfd8a42,H,70-79,Île-de-France,CRP,3,mg/L,2026-11
+74c774413241ab95,F,30-39,Auvergne-Rhône-Alpes,Hémoglobine,13.9,g/dL,2026-11
+92178ed5c223dd69,H,70-79,Grand Est,D-dimères,210,ng/mL,2026-11
+f18173d85d6c16ba,F,20-29,Occitanie,Sodium,139,mmol/L,2026-11
+592dd68a6b1bb8fc,H,30-39,Auvergne-Rhône-Alpes,Kalium,4.2,mmol/L,2026-11
+dcccd1debcdacd68,F,50-59,Île-de-France,ALAT,26,U/L,2026-11
+708c5d63e1d3fe76,H,30-39,Provence-Alpes-Côte d'Azur,Vitamine 25-OH-D,28,ng/mL,2026-11
+9f7f1761d4e23266,F,60-69,Île-de-France,Ferritine,145,µg/L,2026-11
+9fa0789456e2a86b,H,40-49,Île-de-France,Acide urique,52,mg/L,2026-11
+1c6c877abdbecb8e,F,50-59,Bretagne,Bilirubine totale,12,µmol/L,2026-11

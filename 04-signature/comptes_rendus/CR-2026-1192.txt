@@ -1,0 +1,10 @@
+LABORATOIRE VALMONT — COMPTE RENDU D'ANALYSE VALIDÉ
+compte_rendu: CR-2026-1192
+nir: 259079232804677
+nom: Aubry
+prenom: Marlène
+analyse: Ferritine
+valeur: 145
+unite: µg/L
+rendu_le: 2026-11-05 11:16:00
+biologiste: Dr A. Kessler

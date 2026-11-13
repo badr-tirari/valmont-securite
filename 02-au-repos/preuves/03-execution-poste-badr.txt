@@ -1,0 +1,47 @@
+# Exécution réelle sur le poste de cours — Windows 11, PowerShell, Python 3.14.5,
+# conteneur mysql:8.4 (docker compose), cryptography 50.0.2, PyMySQL 1.2.4 — 13/11/2026 16:19
+
+$ py test_alteration.py donnees\export_2026-11-05.csv
+1. Aller-retour
+  [OK] SHA-256 original   = 60ab9c47aecceef8b85305cf01e7815b18bd9c0cabdcc1912c1c5de9e22660d2
+        SHA-256 déchiffré  = 60ab9c47aecceef8b85305cf01e7815b18bd9c0cabdcc1912c1c5de9e22660d2
+2. Nonce unique
+  [OK] nonce 1 = 1880e514a905a082c69aa793 / nonce 2 = e97f865cdb5b87bcc007d309
+3. Altération d'un seul octet
+  [OK] octet 0 (nonce) : refusé
+  [OK] octet 394 (milieu du chiffré) : refusé
+  [OK] octet 787 (dernier octet du tag) : refusé
+4. Troncature
+  [OK] dernier octet supprimé : refusé
+5. Mauvaise clé
+  [OK] clé aléatoire différente : refusé
+
+Bilan : 7/7 contrôles réussis
+
+$ SELECT id, nom, nir FROM patients LIMIT 3;   -- AVANT
+id      nom     nir
+1       Marchand        285075921504281
+2       Ferrand 172033421805614
+3       Bensaïd 290117510603133
+
+$ py migrer_colonne.py migrer
+15 fiche(s) chiffrée(s) et contrôlée(s).
+Colonne nir supprimée, table reconstruite, index aveugle idx_nir_index créé.
+
+$ py migrer_colonne.py verifier
+Colonnes de patients : adresse, analyse, date_naissance, email, id, nir_chiffre, nir_index, nom, prenom, rendu_le, telephone, unite, valeur
+  [OK] plus de colonne nir en clair
+  [OK] 15 fiches parcourues : aucun motif de NIR (15 chiffres) dans aucune colonne
+Extrait de ce que voit un SELECT direct :
+  id=1  nir_chiffre=844646D82191CB9EA98E946871F68819…  nir_index=E4E2100786316827…
+  id=2  nir_chiffre=C64DA4CC23871816EA442BF474C6C409…  nir_index=F976974A79C4E9CB…
+  id=3  nir_chiffre=F8ED2C3DCC63915BF1687B0986409112…  nir_index=72978B3E3FE27CF3…
+
+$ py migrer_colonne.py chercher 285075921504281
+Fiche 1 : Alicie Marchand — NIR 2**********4281 — Glycémie à jeun = 1.08 g/L
+
+$ SELECT id, nom, HEX(nir_chiffre) FROM patients LIMIT 3;   -- APRÈS
+id      nom     HEX(nir_chiffre)
+1       Marchand        844646D82191CB9EA98E946871F68819B9817FADBCFB8CE1FF7562528AAA8A4ABD35326BC2D841B8AF009F
+2       Ferrand C64DA4CC23871816EA442BF474C6C409B97395D3535C5BAED4D3C29D613CD1604C1C9A07C1E464EBC71DD9
+3       Bensaïd F8ED2C3DCC63915BF1687B0986409112195A5AAD743FC2AF1F0B2C161EC7991A82E299A28600D5A55C43BD

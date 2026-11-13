@@ -1,0 +1,22 @@
+# Base MySQL du Laboratoire Valmont — étape 2 du TP (données fictives).
+# Le mot de passe root n'est PAS écrit ici : il vient de la variable d'environnement
+# VALMONT_DB_PASSWORD, que docker compose lit au démarrage.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: valmont-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${VALMONT_DB_PASSWORD:?Definir VALMONT_DB_PASSWORD avant docker compose up}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "127.0.0.1:3307:3306"   # exposé sur la machine locale uniquement
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d:ro   # charge 01-patients.sql au premier démarrage
+      - valmont-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  valmont-data:

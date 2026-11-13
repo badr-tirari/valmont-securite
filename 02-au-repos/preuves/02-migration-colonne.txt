@@ -1,0 +1,79 @@
+# Preuves — migration de la colonne NIR
+# Exécution du 13/11/2026 16:01
+
+$ SELECT id, nom, prenom, nir FROM patients LIMIT 5;   -- AVANT
++----+----------+---------+-----------------+
+| id | nom      | prenom  | nir             |
++----+----------+---------+-----------------+
+|  1 | Marchand | Alicie  | 285075921504281 |
+|  2 | Ferrand  | Bruno   | 172033421805614 |
+|  3 | Bensaïd  | Chloé   | 290117510603133 |
+|  4 | Oliveira | Damien  | 164051309502867 |
+|  5 | Vasseur  | Élodie  | 278093818504775 |
++----+----------+---------+-----------------+
+
+$ python migrer_colonne.py migrer
+15 fiche(s) chiffrée(s) et contrôlée(s).
+Colonne nir supprimée, table reconstruite, index aveugle idx_nir_index créé.
+
+$ python migrer_colonne.py migrer   -- relance : idempotent
+Rien à faire : la colonne nir en clair n'existe plus (migration déjà effectuée).
+
+$ SELECT id, nom, prenom, HEX(nir_chiffre), HEX(nir_index) FROM patients LIMIT 5;   -- APRÈS
++----+----------+---------+------------------------------------------+--------------------------+
+| id | nom      | prenom  | nir_chiffre_hex                          | nir_index_hex            |
++----+----------+---------+------------------------------------------+--------------------------+
+|  1 | Marchand | Alicie  | 9DB884D1217E3179ADB0E3F0FEBDD3A47623A1DA | 52767156FDD6B3BE0E5B612C |
+|  2 | Ferrand  | Bruno   | 6AE53945876F5DC3DB2983CCA3CDBDF75AA9AC59 | 8C9FB4970EC6A7C65339F52C |
+|  3 | Bensaïd  | Chloé   | DD5B0695517C92311883E2EFE7D5359818C8E377 | 61A32771ACBA038D0B33BADE |
+|  4 | Oliveira | Damien  | E2DC1BFF95B7FE237B051A1ED9133FC102499AA3 | 77A6FC1AA580C20B7780956E |
+|  5 | Vasseur  | Élodie  | E6284A6F46732D9D053ACA8001FF0BF95456B1EB | 8480C9EFD298A656D3D2114E |
++----+----------+---------+------------------------------------------+--------------------------+
+
+$ SELECT * FROM patients WHERE nir = '285075921504281';   -- l'ancienne requête échoue
+--------------
+SELECT * FROM patients WHERE nir = '285075921504281'
+--------------
+
+ERROR 1054 (42S22) at line 1: Unknown column 'nir' in 'WHERE'
+
+$ python migrer_colonne.py verifier
+Colonnes de patients : adresse, analyse, date_naissance, email, id, nir_chiffre, nir_index, nom, prenom, rendu_le, telephone, unite, valeur
+  [OK] plus de colonne nir en clair
+  [OK] 15 fiches parcourues : aucun motif de NIR (15 chiffres) dans aucune colonne
+Extrait de ce que voit un SELECT direct :
+  id=1  nir_chiffre=9DB884D1217E3179ADB0E3F0FEBDD3A4…  nir_index=52767156FDD6B3BE…
+  id=2  nir_chiffre=6AE53945876F5DC3DB2983CCA3CDBDF7…  nir_index=8C9FB4970EC6A7C6…
+  id=3  nir_chiffre=DD5B0695517C92311883E2EFE7D53598…  nir_index=61A32771ACBA038D…
+code retour = 0
+
+$ python migrer_colonne.py chercher 285075921504281
+Fiche 1 : Alicie Marchand — NIR 2**********4281 — Glycémie à jeun = 1.08 g/L
+$ python migrer_colonne.py chercher "1 72 03 34 218 056 14"   -- saisie avec espaces
+Fiche 2 : Bruno Ferrand — NIR 1**********5614 — Créatinine = 88 µmol/L
+$ python migrer_colonne.py chercher 199999999999999   -- NIR absent
+Aucune fiche pour ce NIR.
+
+$ -- Attaque : recopier le chiffré et l index de la fiche 1 sur la fiche 2
+$ python migrer_colonne.py chercher 285075921504281
+Fiche 1 : Alicie Marchand — NIR 2**********4281 — Glycémie à jeun = 1.08 g/L
+Fiche 2 : NIR non authentique (altéré ou recopié depuis une autre fiche).
+
+$ SHOW CREATE TABLE patients
+Create Table: CREATE TABLE `patients` (
+  `id` int(11) NOT NULL,
+  `nom` varchar(64) NOT NULL,
+  `prenom` varchar(64) NOT NULL,
+  `date_naissance` date NOT NULL,
+  `adresse` varchar(128) DEFAULT NULL,
+  `telephone` varchar(20) DEFAULT NULL,
+  `email` varchar(128) DEFAULT NULL,
+  `nir_chiffre` varbinary(64) NOT NULL,
+  `nir_index` binary(32) NOT NULL,
+  `analyse` varchar(32) NOT NULL,
+  `valeur` varchar(16) NOT NULL,
+  `unite` varchar(16) DEFAULT NULL,
+  `rendu_le` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_nir_index` (`nir_index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci

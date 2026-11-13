@@ -1,0 +1,17 @@
+# Garde-fou n° 1, côté poste : le commit est refusé si un secret est détecté.
+# Installation (une fois par clone) :
+#   pip install pre-commit
+#   pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+        args: ["--config", ".gitleaks.toml"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key        # filet de sécurité supplémentaire sur les clés PEM
+      - id: check-added-large-files   # un dump de base n'entre pas par erreur
+        args: ["--maxkb=500"]
